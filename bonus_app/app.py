@@ -16,7 +16,8 @@ SETS = {
     "cruises": ("Disney Cruises", "disney_results.csv", "disney_cruises", {
         "title": "Title", "special_offer": "Special Offer", "departing_from": "Departing From",
         "duration": "Duration", "sailing_to": "Sailing To", "price_from_inr": "Price From (INR)",
-        "guests": "Guests", "number_of_dates": "Number of Dates", "holiday_cruise": "Holiday Cruise"}),
+        "guests": "Guests", "number_of_dates": "Number of Dates", "theme_banner": "Theme Banner",
+        "holiday_cruise": "Holiday Cruise"}),
     "companies": ("Ingredients Network Companies", "ingredients_results.csv", "ingredient_companies", {
         "company_id": "Company ID", "company_name": "Company Name",
         "company_description": "Company Description", "sales_markets": "Sales Markets",

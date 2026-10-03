@@ -14,7 +14,8 @@ JOBS = [
     ("disney_cruises", "disney_results.csv", {
         "Title": "title", "Special Offer": "special_offer", "Departing From": "departing_from",
         "Duration": "duration", "Sailing To": "sailing_to", "Price From (INR)": "price_from_inr",
-        "Guests": "guests", "Number of Dates": "number_of_dates", "Holiday Cruise": "holiday_cruise"}),
+        "Guests": "guests", "Number of Dates": "number_of_dates", "Theme Banner": "theme_banner",
+        "Holiday Cruise": "holiday_cruise"}),
     ("ingredient_companies", "ingredients_results.csv", {
         "Company ID": "company_id", "Company Name": "company_name",
         "Company Description": "company_description", "Sales Markets": "sales_markets",
@@ -29,6 +30,8 @@ def main():
     for table, csv_name, cols in JOBS:
         df = pd.read_csv(os.path.join(DATA, csv_name), encoding="utf-8-sig").fillna("").rename(columns=cols)
         records = df.to_dict("records")
+        if table == "disney_cruises":                       # no natural key: clear first so reruns do not duplicate
+            sb.table(table).delete().gt("id", 0).execute()
         for i in range(0, len(records), 200):                       # batch inserts
             sb.table(table).upsert(records[i:i + 200]).execute() if table == "ingredient_companies" \
                 else sb.table(table).insert(records[i:i + 200]).execute()

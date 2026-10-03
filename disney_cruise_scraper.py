@@ -14,6 +14,7 @@ Usage:  python disney_cruise_scraper.py [--headless] [--destination pacific-coas
 """
 import argparse
 import json
+import os
 import platform
 import re
 import sys
@@ -27,9 +28,9 @@ API = "/dcl-apps-productavail-vas/available-products/"
 RAW_CSV = "disney_raw_temp.csv"
 FINAL_CSV = "disney_results.csv"
 COLUMNS = ["Title", "Special Offer", "Departing From", "Duration", "Sailing To",
-           "Price From (INR)", "Guests", "Number of Dates", "Holiday Cruise"]
-HOLIDAY_WORDS = ("merrytime", "halloween", "christmas", "thanksgiving", "new year", "holiday",
-                 "memorial", "presidents", "july", "easter", "spooky", "valentine")
+           "Price From (INR)", "Guests", "Number of Dates", "Theme Banner", "Holiday Cruise"]
+HOLIDAY_BANNERS = ("merrytime", "halloween")      # card banners: "Very Merrytime", "Halloween on the High Seas"
+HOLIDAY_THEMES = ("merry", "spooky")              # matching site filters (used as a cross-check)
 
 
 # --------------------------------------------------------------------------- #
@@ -61,7 +62,15 @@ def api_search(page, filters, page_no=1):
 
 def open_results(page, destination=None):
     page.goto(URL, wait_until="domcontentloaded")
-    page.wait_for_selector("button.view-cruises-button", timeout=60000)
+    try:
+        page.wait_for_selector("button.view-cruises-button", timeout=60000)
+    except PWTimeout:
+        # Help diagnose bot-blocking: show what the site actually returned
+        print("View Dates button never appeared.")
+        print("URL:", page.url, "| Title:", page.title())
+        body = page.evaluate("document.body.innerText").strip()
+        print("Page text:", " ".join(body.split())[:400])
+        raise
     decline_cookies(page)
     if destination:                                    # optional programmatic filter
         page.get_by_text("Sailing to").first.click()
@@ -89,7 +98,7 @@ def scroll_to_end(page, expected_cards):
 # --------------------------------------------------------------------------- #
 # Card parsing
 # --------------------------------------------------------------------------- #
-def parse_card(text):
+def parse_card(text, ports, banners):
     lines = [l.strip() for l in text.split("\n") if l.strip()]
     title = next((l for l in lines if re.search(r"-Night", l)), "")
     offer = next((l for l in lines if l.lower().startswith("guaranteed")), "")
@@ -97,11 +106,7 @@ def parse_card(text):
     guests = next((l for l in lines if re.search(r"\d+ Guests?", l)), "")
     dates = next((re.search(r"Show (\d+) Dates?", l).group(1) for l in lines
                   if re.search(r"Show \d+ Dates?", l)), "")
-    sailing_to = ""
-    if "Sailing to" in lines:
-        i = lines.index("Sailing to") + 1
-        j = next((k for k in range(i, len(lines)) if lines[k].startswith("Price from")), len(lines))
-        sailing_to = " | ".join(lines[i:j])
+    sailing_to = " | ".join(p.strip() for p in ports if p.strip())
     m = re.search(r"from (.+)$", title)
     nights = re.search(r"(\d+)-Night", title)
     return {
@@ -113,7 +118,8 @@ def parse_card(text):
         "Price From (INR)": price.replace("INR", "").strip(),
         "Guests": guests,
         "Number of Dates": dates,
-        "Holiday Cruise": "Yes" if any(w in title.lower() for w in HOLIDAY_WORDS) else "No",
+        "Theme Banner": " | ".join(dict.fromkeys(b.strip() for b in banners if b.strip())),
+        "Holiday Cruise": "Yes" if any(w in " ".join(banners).lower() for w in HOLIDAY_BANNERS) else "No",
     }
 
 
@@ -121,7 +127,7 @@ def clean(df, keep_no_port=False):
     df = df.copy()
     for c in COLUMNS:
         df[c] = df[c].fillna("").astype(str).str.strip()
-    required = [c for c in COLUMNS if c not in ("Special Offer",)]      # offer badge is optional
+    required = [c for c in COLUMNS if c not in ("Special Offer", "Theme Banner")]      # offer badge is optional
     if keep_no_port:
         required.remove("Sailing To")
     df = df[(df[required] != "").all(axis=1)]
@@ -140,7 +146,8 @@ def main():
 
     with sync_playwright() as p:
         on_linux = platform.system() == "Linux"          # Colab / servers: no display, run as root
-        headless = args.headless or on_linux
+        # on Linux use a real (headed) browser if a display exists (e.g. xvfb-run), else headless
+        headless = args.headless or (on_linux and not os.environ.get("DISPLAY"))
         launch_args = ["--disable-blink-features=AutomationControlled"] + (
             ["--no-sandbox", "--disable-dev-shm-usage"] if on_linux else [])
         try:
@@ -162,8 +169,10 @@ def main():
         print(f"Site reports {total_cruises} cruises over {total_pages} pages")
         scroll_to_end(page, total_pages * per_page)
 
-        texts = page.evaluate("[...document.querySelectorAll('dcl-product-card')].map(c => c.innerText)")
-        rows = [parse_card(t) for t in texts]
+        cards = page.evaluate("""[...document.querySelectorAll('dcl-product-card')].map(c => [c.innerText,
+            [...c.querySelectorAll('ul.ul-port-list li')].map(li => li.innerText),
+            [...c.querySelectorAll('.banner__text')].map(b => b.textContent)])""")
+        rows = [parse_card(t, ports, banners) for t, ports, banners in cards]
         pd.DataFrame(rows, columns=COLUMNS).to_csv(RAW_CSV, index=False, encoding="utf-8-sig")  # temporary
 
         # --- numbers for the analysis questions come from the same API the page uses ---
@@ -172,12 +181,8 @@ def main():
             return r["totalAvailableCruises"], r["totalPages"]
 
         pacific = count(["pacific-coast-cruises"])
-        holiday_titles = set()
-        for theme in ("merry", "spooky", "mdas", "pdas"):
-            r = api_search(page, [theme])
-            for pg_no in range(1, r["totalPages"] + 1):
-                resp = r if pg_no == 1 else api_search(page, [theme], pg_no)
-                holiday_titles |= {(pr["productDisplayName"]) for pr in resp["products"]}
+        # cross-check: cruises the site files under its holiday themes (merry + spooky filters)
+        holiday_sailings = sum(count([f"{t}"])[0] for t in HOLIDAY_THEMES)
         browser.close()
 
     raw = pd.DataFrame(rows, columns=COLUMNS)
@@ -191,7 +196,7 @@ def main():
     print(f"(ii)  Total cruises on the site                          : {total_cruises} "
           f"({len(raw)} distinct cruise cards)")
     print(f"(iii) Holiday cruises (cards)                            : "
-          f"{int((raw['Holiday Cruise'] == 'Yes').sum())}  (distinct holiday-theme titles on site: {len(holiday_titles)})")
+          f"{int((raw['Holiday Cruise'] == 'Yes').sum())}  (site holiday filters list {holiday_sailings} sailings)")
     print(f"(iv)  Cruises offering more than 2 dates                 : "
           f"{int((pd.to_numeric(raw['Number of Dates'], errors='coerce') > 2).sum())}")
     print(f"(v)   Cruises departing from Miami / London              : "

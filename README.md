@@ -32,8 +32,8 @@ Two web scrapers, their cleaned datasets, and a small web app (bonus) that serve
 | Question | Answer |
 |---|---|
 | Cruises with Pacific (Pacific Coast) as destination | 5 |
-| Total cruises | 948 (about 170 distinct cards) |
-| Holiday cruises | 27 (title keywords; the site's own holiday themes cover 33 titles) |
+| Total cruises | 947 (171 distinct cards) |
+| Holiday cruises | 71 cards ("Very Merrytime" / "Halloween on the High Seas" banners; the site's holiday filters list 234 sailings) |
 | Cruises with more than 2 dates | 67 |
 | Departing from Miami / London | 0 / 0 |
 

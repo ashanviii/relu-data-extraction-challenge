@@ -9,6 +9,7 @@ create table if not exists public.disney_cruises (
   price_from_inr text not null,
   guests text not null,
   number_of_dates integer not null,
+  theme_banner text,
   holiday_cruise text not null
 );
 
@@ -27,8 +28,13 @@ create table if not exists public.ingredient_companies (
   company_url text
 );
 
+-- If the disney_cruises table already exists, add the new column instead:
+-- alter table public.disney_cruises add column if not exists theme_banner text;
+
 -- Allow the web app (anon key) to read, not write.
 alter table public.disney_cruises enable row level security;
 alter table public.ingredient_companies enable row level security;
+drop policy if exists "public read" on public.disney_cruises;
 create policy "public read" on public.disney_cruises for select using (true);
+drop policy if exists "public read" on public.ingredient_companies;
 create policy "public read" on public.ingredient_companies for select using (true);
