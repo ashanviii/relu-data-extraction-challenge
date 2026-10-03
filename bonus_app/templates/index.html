@@ -1,0 +1,30 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scraped Data Viewer</title>
+<style>
+body{font-family:system-ui,sans-serif;margin:0;background:#f6f7f9;color:#1c2330}
+header{background:#12304f;color:#fff;padding:14px 20px}
+main{padding:16px 20px}
+form{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+input,select,button{padding:8px;border:1px solid #bbb;border-radius:6px;font-size:14px}
+button{background:#12304f;color:#fff;border:0;cursor:pointer}
+.wrap{overflow-x:auto;background:#fff;border:1px solid #ddd;border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:8px 10px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;max-width:340px;overflow-wrap:anywhere}
+th{background:#eef2f7;position:sticky;top:0}
+.pg{margin-top:12px;display:flex;gap:12px;align-items:center}
+a{color:#12304f}
+</style></head><body>
+<header><h1 style="margin:0;font-size:20px">Scraped Data Viewer</h1></header>
+<main>
+<form method="get">
+<select name="set" onchange="this.form.submit()">{% for k,(t,_) in sets.items() %}<option value="{{k}}" {{'selected' if k==key}}>{{t}}</option>{% endfor %}</select>
+<input name="q" value="{{q}}" placeholder="Search…"><button>Search</button>
+</form>
+<p>{{total}} records · source: {{source}}</p>
+<div class="wrap"><table><thead><tr>{% for c in columns %}<th>{{c}}</th>{% endfor %}</tr></thead>
+<tbody>{% for r in rows %}<tr>{% for v in r %}<td>{{v}}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div>
+<div class="pg">
+{% if page>1 %}<a href="?set={{key}}&q={{q}}&page={{page-1}}">‹ Prev</a>{% endif %}
+<span>Page {{page}} / {{pages}}</span>
+{% if page<pages %}<a href="?set={{key}}&q={{q}}&page={{page+1}}">Next ›</a>{% endif %}
+</div></main></body></html>
