@@ -27,7 +27,7 @@ SETS = {
 }
 # text columns searched with ILIKE
 SEARCH_COLS = {
-    "cruises": ["title", "departing_from", "sailing_to", "special_offer"],
+    "cruises": ["title", "departing_from", "sailing_to", "special_offer", "theme_banner"],
     "companies": ["company_name", "company_description", "sales_markets", "primary_business_activity",
                   "categories", "events", "address", "email", "website"],
 }
