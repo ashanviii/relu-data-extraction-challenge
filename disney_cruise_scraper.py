@@ -14,6 +14,7 @@ Usage:  python disney_cruise_scraper.py [--headless] [--destination pacific-coas
 """
 import argparse
 import json
+import platform
 import re
 import sys
 
@@ -135,14 +136,23 @@ def main():
     ap.add_argument("--destination", help="urlFriendlyId, e.g. pacific-coast-cruises")
     ap.add_argument("--keep-no-port", action="store_true",
                     help="keep cruises that have no 'Sailing to' port (default: dropped per cleaning rule)")
-    args = ap.parse_args()
+    args, _ = ap.parse_known_args()      # tolerant of notebook/kernel arguments
 
     with sync_playwright() as p:
+        on_linux = platform.system() == "Linux"          # Colab / servers: no display, run as root
+        headless = args.headless or on_linux
+        launch_args = ["--disable-blink-features=AutomationControlled"] + (
+            ["--no-sandbox", "--disable-dev-shm-usage"] if on_linux else [])
         try:
-            browser = p.chromium.launch(channel="msedge", headless=args.headless)
+            if on_linux:
+                raise RuntimeError("use bundled Chromium")
+            browser = p.chromium.launch(channel="msedge", headless=headless, args=launch_args)
         except Exception:
-            browser = p.chromium.launch(headless=args.headless)
-        page = browser.new_page(viewport={"width": 1400, "height": 900})
+            browser = p.chromium.launch(headless=headless, args=launch_args)
+        page = browser.new_page(
+            viewport={"width": 1400, "height": 900},
+            user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                        "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"))
         open_results(page, args.destination)
 
         filters = [args.destination] if args.destination else []

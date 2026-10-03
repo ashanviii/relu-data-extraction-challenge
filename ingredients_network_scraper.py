@@ -217,7 +217,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0, help="only scrape the first N companies (testing)")
     ap.add_argument("--workers", type=int, default=4)
-    args = ap.parse_args()
+    args, _ = ap.parse_known_args()
 
     groups = load_nav_groups()
     print(f"Navigation categories mapped: {len(groups)}")
